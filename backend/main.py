@@ -15,7 +15,12 @@ app = FastAPI(title="Potential Insurance Backend")
 # Allow Vite dev server origin; adjust as needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +29,7 @@ app.add_middleware(
 BASE_DIR = Path(__file__).resolve().parent
 UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "https://potential-insurance.onrender.com")
 
 # Serve uploaded files
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
@@ -88,8 +94,8 @@ def save_upload(file: UploadFile, claim_folder: Path) -> str:
     dest = claim_folder / unique_name
     with dest.open("wb") as f:
         shutil.copyfileobj(file.file, f)
-    # Return a URL path the frontend can use (proxied by Vite in dev)
-    return f"/uploads/{claim_folder.name}/{unique_name}"
+    # Return an absolute URL for production usage
+    return f"{PUBLIC_BASE_URL}/uploads/{claim_folder.name}/{unique_name}"
 
 @app.post("/api/claims")
 async def create_claim(

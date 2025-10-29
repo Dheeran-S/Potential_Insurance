@@ -4,4 +4,8 @@ pandas
 scikit-learn
 joblib
 google-generativeai
+<<<<<<< HEAD
 python-multipart
+=======
+python-multipart
+>>>>>>> 4cf7a19 (Add production URL handling and update file upload logic)

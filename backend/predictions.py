@@ -4,7 +4,7 @@ import joblib
 import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent
-MODEL_PATH = r"C:\Users\Asus\Desktop\HealthInsurance\my-react-app\backend\fraud_detection_voting_model.pkl"
+MODEL_PATH = BASE_DIR / "fraud_detection_voting_model.pkl"
 
 def _expected_columns_from_model(model):
     if hasattr(model, "feature_names_in_"):

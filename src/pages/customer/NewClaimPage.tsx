@@ -6,6 +6,7 @@ import Header from '../../components/Header';
 // Note: We now send files directly to the backend using FormData.
 
 const NewClaimPage: React.FC = () => {
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE || '';
   const [policyNumber, setPolicyNumber] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -40,7 +41,11 @@ const NewClaimPage: React.FC = () => {
       fd.append('description', description);
       files.forEach(f => fd.append('files', f, f.name));
 
+<<<<<<< HEAD
       const res = await fetch('https://your-backend.onrender.com/api/claims', {
+=======
+      const res = await fetch(`${API_BASE}/api/claims`, {
+>>>>>>> 4cf7a19 (Add production URL handling and update file upload logic)
         method: 'POST',
         body: fd,
       });
