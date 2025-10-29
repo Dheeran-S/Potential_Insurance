@@ -40,7 +40,7 @@ const NewClaimPage: React.FC = () => {
       fd.append('description', description);
       files.forEach(f => fd.append('files', f, f.name));
 
-      const res = await fetch('/api/claims', {
+      const res = await fetch('https://your-backend.onrender.com/api/claims', {
         method: 'POST',
         body: fd,
       });
