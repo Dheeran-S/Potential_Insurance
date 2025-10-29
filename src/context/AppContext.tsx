@@ -65,8 +65,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateClaimStatus = useCallback(async (claimId: string, newStatus: ClaimStatus, notes?: string) => {
     setIsLoading(true);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 700));
+    // Call backend decision API (fire-and-forget style with graceful handling)
+    try {
+      const targetClaim = claims.find(c => c.id === claimId);
+      const decision = newStatus === ClaimStatus.APPROVED ? 'approved' : newStatus === ClaimStatus.REJECTED ? 'rejected' : undefined;
+      if (decision) {
+        const approved_amount = decision === 'approved' ? (targetClaim?.claimedAmount ?? 0) : undefined;
+        await fetch('/api/claims/decision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            claim_id: claimId,
+            customer_id: 'cust-PLACEHOLDER',
+            topic_id: targetClaim && (targetClaim as any).blockchain?.topic_id ? (targetClaim as any).blockchain.topic_id : undefined,
+            decision,
+            approved_amount,
+            reason: notes || (decision === 'approved' ? 'Meets policy terms' : 'Rejected by approver'),
+          }),
+        }).catch(() => {});
+      }
+    } catch (_) {
+      // ignore network errors; continue optimistic UI update
+    }
 
     setClaims(prevClaims =>
       prevClaims.map(claim => {
@@ -114,6 +134,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: ClaimStatus.SUBMITTED,
         statusHistory: [{ status: ClaimStatus.SUBMITTED, timestamp: new Date().toISOString() }],
       };
+      (newClaim as any).blockchain = serverClaim.blockchain ? serverClaim.blockchain : (serverClaim as any).blockchain;
 
       setClaims(prev => [newClaim, ...prev]);
     } finally {

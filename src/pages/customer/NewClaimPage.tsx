@@ -6,7 +6,6 @@ import Header from '../../components/Header';
 // Note: We now send files directly to the backend using FormData.
 
 const NewClaimPage: React.FC = () => {
-  const API_BASE = (import.meta as any).env?.VITE_API_BASE || 'https://potential-insurance.onrender.com';
   const [policyNumber, setPolicyNumber] = useState('');
   const [description, setDescription] = useState('');
   const [files, setFiles] = useState<File[]>([]);
@@ -41,7 +40,7 @@ const NewClaimPage: React.FC = () => {
       fd.append('description', description);
       files.forEach(f => fd.append('files', f, f.name));
 
-      const res = await fetch(`${API_BASE}/api/claims`, {
+      const res = await fetch('/api/claims', {
         method: 'POST',
         body: fd,
       });
@@ -51,6 +50,70 @@ const NewClaimPage: React.FC = () => {
       const data = await res.json();
       if (data?.ok && data?.claim) {
         await ingestServerClaim(data.claim);
+        // Fire-and-forget: call topic creation and JSON submit with base64 docs, then extract placeholders
+        try {
+          // Create topic
+          const topicResp = await fetch('/api/create-topic', { method: 'POST' });
+          const topicJson = await topicResp.json().catch(() => ({} as any));
+          const topicIdSubmit = topicJson?.topic_id || data?.claim?.blockchain?.topic_id;
+
+          // Prepare base64 documents
+          const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = String(reader.result || '');
+              const idx = result.indexOf(',');
+              resolve(idx >= 0 ? result.slice(idx + 1) : result);
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          });
+          const docs = await Promise.all(
+            files.map(async f => ({ filename: f.name, content_base64: await toBase64(f) }))
+          );
+
+          // Submit claim (JSON)
+          await fetch('/api/claims/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customer_id: 'cust-PLACEHOLDER',
+              claim_id: String(data.claim.id),
+              topic_id: topicIdSubmit,
+              documents: docs,
+              metadata: {
+                type: claimType.toLowerCase().includes('vehicle') ? 'motor' : 'health',
+                submitted_by: 'customer',
+                incident_date: String(dateOfIncident),
+                claimed_amount: Number(claimedAmount),
+                policy_number: String(policyNumber),
+                description: String(description),
+              },
+            }),
+          }).catch(() => {});
+
+          // Extract placeholders using same topic
+          await fetch('/api/claims/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              claim_id: String(data.claim.id),
+              customer_id: 'cust-PLACEHOLDER',
+              topic_id: topicIdSubmit,
+              extracted: {
+                chassis_number: 'CHS1234567890',
+                engine_number: 'ENG9876543210',
+                make: 'Honda',
+                model: 'City',
+                year: 2019,
+                registration_number: 'MH12AB1234',
+                policy_number: String(policyNumber),
+              },
+            }),
+          }).catch(() => {});
+        } catch (_) {
+          // ignore any blockchain API errors
+        }
       }
       navigate('/customer/dashboard');
     } catch (err) {
